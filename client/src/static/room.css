@@ -1,0 +1,40 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  height: 100%;
+  padding: 30px;
+
+  border: 1px solid red;
+}
+
+.top-container {
+	display: flex;
+	justify-content: space-between;
+
+	border: 1px solid green;
+}
+
+.main-container {
+	display: flex;
+	justify-content: space-between;
+	flex: 1;
+	border: 1px solid green;
+	gap: 30px;
+}
+
+.main-container div {
+	border: 1px solid red;
+}
+
+.members-container {
+	flex: 2;
+}
+
+.editor-container {
+	flex: 6;
+}
+
+.status-container {
+	flex: 2;
+}
