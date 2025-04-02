@@ -23,18 +23,78 @@
 	gap: 30px;
 }
 
-.main-container div {
+.members-container, .status-container {
+	display: flex;
+	flex-direction: column;
+	flex: 2;
+	padding: 10px;
+	gap: 10px;
+
 	border: 1px solid red;
 }
 
-.members-container {
-	flex: 2;
+.sidebar-members {
+	flex: 1;
+	border: 1px solid black;
+}
+
+.member {
+	padding: 10px;
+	display: flex;
+	justify-content: space-between;
 }
 
 .editor-container {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
 	flex: 6;
 }
 
-.status-container {
-	flex: 2;
+textarea {
+	resize: none;
+}
+
+.code-editor {
+	display: flex;
+	flex-direction: column;
+	height: 75%;
+	overflow: auto;
+
+	border: 1px solid red;
+}
+
+.input-output {
+	display: flex;
+	flex: 1;
+	gap: 10px;
+
+/*	border: 1px solid red;*/
+}
+
+.input-output div {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+
+/*	border: 1px solid red;*/
+}
+
+.input-editor, .output-area {
+	flex: 1;
+	width: 100%;
+	border: 1px solid black;
+}
+
+.run-btn {
+	padding: 10px;
+}
+
+.submission-area {
+	display: flex;
+	justify-content: space-between;
+	padding: 10px;
+	flex: 1;
+
+	border: 1px solid blue;
 }
