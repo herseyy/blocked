@@ -134,3 +134,8 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+
+key.json
+firebaseAdmin.config.js
+firebase.config.js
