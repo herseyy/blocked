@@ -43,7 +43,7 @@ function HomePage() {
 
         if (user) {
           // go to lobby
-          navigate("/lobby");
+          navigate("/");
         }
 
       })

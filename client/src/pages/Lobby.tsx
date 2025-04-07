@@ -3,22 +3,27 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 
 import axios from "axios";
+import { useSocket } from '../socket';
+
 
 function Lobby({ user, role }) {
+	const socket = useSocket();
+
 	const [isVisible, setIsVisible] = useState(false);
 	const [inputElements, setInputElements] = useState([]);
 	const [inputTestElements, setInputTestElements] = useState([]);
 	const [rooms, setRooms] = useState([]);
 
 	const navigate = useNavigate();
-	const roomId = "1234";
 	const userId = user.uid;
 	
     async function fetchRooms() {
       try {
-        const res = await axios.get(`http://localhost:3000/api/rooms/getRooms?userId=${userId}`);
-        setRooms(res.data);
-        console.log(res.data)
+      	if (role == "admin") {
+	        const res = await axios.get(`http://localhost:3000/api/rooms/getRooms?userId=${userId}`);
+	        setRooms(res.data);
+      	}
+        // console.log(res.data)
       } catch (err) {
         console.log(`ERROR GETTING ROOMS: ${err.message}`);
       }
@@ -27,16 +32,23 @@ function Lobby({ user, role }) {
 	    fetchRooms();
 	}, []);
 
-	function enterRoom(roomId = "") {
+	async function enterRoom(roomId = "") {
 		if (role == "admin") {
+			socket.emit('joinRoom', { roomId: roomId, userId: user.uid });
 			navigate(`/rooms/${roomId}`, {
 				state: {"roomId": roomId}
 			})
 		} else {
 			const roomIdInput = document.getElementById("roomIdInput").value
-			navigate(`/rooms/${roomIdInput}`, {
-				state: {"roomId": roomIdInput}
-			})
+			
+			const res = await axios.get(`http://localhost:3000/api/rooms/getRoom?roomId=${roomIdInput}`);
+			
+			if (res.data) {
+				socket.emit('joinRoom', { roomId: roomIdInput, userId: user.uid });
+				navigate(`/rooms/${roomIdInput}`, {
+					state: {"roomId": roomIdInput}
+				})
+			}
 		}
 	}
 

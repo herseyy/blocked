@@ -9,7 +9,6 @@ export async function createRoom(req, res) {
 	// console.log(problemData)
 
   	try {
-
 	    await db.ref("rooms/" + id).set({
 	    	userId,
 	    	players: [],
@@ -73,10 +72,39 @@ export async function getCurrentRoom(req, res) {
 		}
 
 		const room = snapshot.val();
-		return res.status(200).json(room.problems);
+		return res.status(200).json(room);
 
 	} catch (error) {
-		console.error("Error fetching room:", error);
+		return res.status(500).json({ error: error.message });
+	}
+}
+
+export async function addPlayer(req, res) {
+	const { roomId, userId } = req.body;
+	console.log(req.body)
+	try {
+		const roomsRef = db.ref("rooms/" + roomId);
+
+		const snapshot = await roomsRef.once("value");
+		const roomData = snapshot.val();
+
+		if (roomData) {
+			// console.log(room)
+			console.log(userId, roomData.players, "aaaaaaaaaa")
+			if (roomData.players && roomData.players.includes(userId)) return;
+			
+			const newPlayers = roomData.players ? [...roomData.players, userId] : [userId]
+
+			await roomsRef.update({
+				players: newPlayers
+			})
+
+			return res.status(200).json({ message: "User added to players successfully" });
+		} else {
+			return res.status(404).json({ message: "Room not found" });
+		}
+	} catch(err) {
+		console.error("Error adding user to players:", error);
 		return res.status(500).json({ error: error.message });
 	}
 }

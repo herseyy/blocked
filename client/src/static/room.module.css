@@ -41,6 +41,7 @@
 .member {
 	padding: 10px;
 	display: flex;
+	flex-direction: column;
 	justify-content: space-between;
 }
 
@@ -48,7 +49,7 @@
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
-	flex: 6;
+	flex: 4;
 }
 
 textarea {
@@ -98,8 +99,10 @@ textarea {
 
 .submissionArea {
 	display: flex;
-	justify-content: space-between;
+	flex-direction: column;
+	justify-content: flex-start;
 	padding: 10px;
+	gap: 10px;
 	flex: 1;
 
 	border: 1px solid blue;

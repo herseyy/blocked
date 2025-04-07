@@ -9,16 +9,45 @@ import {indentWithTab} from "@codemirror/commands";
 import { basicSetup } from "codemirror";
 import { python } from "@codemirror/lang-python";
 
+import { useSocket } from '../socket';
 
 function Room({ user, role }) {
+	const socket = useSocket();
+
 	const location = useLocation();
 	const editorRef = useRef<HTMLDivElement | null>(null);
+	const viewerRef = useRef<HTMLDivElement | null>(null);
 	const inputRef = useRef<HTMLTextareaElement | null>(null);
 	const viewRef = useRef<EditorView | null>(null);
+	const viewerViewRef = useRef<EditorView | null>(null);
 	const roomId = location.state.roomId
 
 	const [result, setResult] = useState();
-	const [testCases, setTestCases] = useState({});
+	const [selectedProblem, setSelectedProblem] = useState('');
+	const [problems, setProblems] = useState({});
+	const [submissions, setSubmissions] = useState([]);
+	const [submitted, setSubmitted] = useState([]);
+	const [status, setStatus] = useState([]);
+
+
+	useEffect(() => {
+		socket.on('roomMessage', (data) => {
+	  		console.log(`${data.userId} joined room ${data.roomId}: ${data.message}`);
+
+	  		if (role == "admin" && data.userId != user.uid) {
+	  			console.log("ADDD PLAYER")
+	  			// add player to db
+	  			axios.post("http://localhost:3000/api/rooms/addPlayer", {
+	  				roomId: data.roomId,
+	  				userId: data.userId
+	  			})
+	  		}
+		});
+
+		return () => {
+		  socket.off('roomMessage');
+		};
+	}, [socket]);
 
 	useEffect(() => {
 		if (!editorRef.current) return;
@@ -41,17 +70,34 @@ function Room({ user, role }) {
     	return () => view.destroy();
 	}, [])
 
+	useEffect(() => {
+		if (!viewerRef.current) return;
+
+		const state = EditorState.create({
+			doc: "",  // Initial empty state
+			extensions: [
+				basicSetup,
+				keymap.of([indentWithTab]),
+				python(),
+				EditorView.editable.of(false) // Make it read-only
+			]
+		});
+
+		const view = new EditorView({
+			state,
+			parent: viewerRef.current
+		});
+
+		viewerViewRef.current = view;
+
+		return () => view.destroy(); // Clean up on unmount
+	}, []);
+
 
 	const fetchData = async () => {
-		console.log("helllooo")
 		try {
-			console.log(roomId);
-			console.log(user.uid);
-
-			// Make the API request
 			const res = await axios.get(`http://localhost:3000/api/rooms/getRoom?roomId=${roomId}`);
-			// console.log(res.data);
-			setTestCases(res.data)
+			setProblems(res.data.problems)
 		} catch (err) {
 			console.log(err.message);
 		}
@@ -60,6 +106,17 @@ function Room({ user, role }) {
 	useEffect(() => {
 		fetchData()
 	}, [])
+
+
+	socket.on('submit-check', (data) => {
+		console.log(data, "aaaaaa")
+  		if (role == "admin" && data.userId != user.uid) {
+  			setSubmissions([...submissions, data])
+  			console.log(submissions, "aaaa")
+  			// console.log(data.selectedProblem, data.userId)
+  		}
+	});
+
 
 	const runCode = async() => {
 		if (!viewRef.current) return;
@@ -71,17 +128,70 @@ function Room({ user, role }) {
 			code,
 			input
 		}).then((res) => {
-			console.log(res.data)
 			setResult(res.data)
 		}).catch((err) => {
 			console.log(`ERROR posting code ${err}`)
 		})
 	}
 
-	return (
-		<div>
-			{role == "admin" ? 
-				<div className={styles.container}>
+	const handleChange = (e) => {
+		setSelectedProblem(e.target.value);
+		console.log("Selected:", e.target.value);
+	};
+
+	function submit() {
+		let code = viewRef.current.state.doc.text
+		let userId = user.uid
+		socket.emit("submit", {code, selectedProblem, roomId, userId})
+	}
+
+	function check(data, index) {
+		console.log(data.code)
+
+		if (!viewerViewRef.current) return;
+
+		const formattedCode = data.code.join("\n");
+		console.log(formattedCode)
+
+		const newState = EditorState.create({
+			doc: formattedCode,
+			extensions: [
+				basicSetup,
+				keymap.of([indentWithTab]),
+				python(),
+				EditorView.editable.of(false)
+			]
+		});
+
+		viewerViewRef.current.setState(newState);
+
+		axios.post("http://localhost:3000/check", {
+			language: "python",
+			code: data.code,
+			testCases: problems[data.selectedProblem],
+			selectedProblem: data.selectedProblem
+		}).then((res) => {
+			socket.emit("userID", {status: res.data, data})
+		}).catch((err) => {
+			console.log(`ERROR posting code ${err}`)
+		})
+
+		// remove submission
+		setSubmissions(prev => prev.filter((_, idx) => idx !== index));
+	}
+
+	useEffect(() => {
+		console.log(submitted, "xxx")
+	}, [submitted])
+
+	socket.on(user.uid, (data) => {
+		console.log(`${data}`)
+		setSubmitted([...submitted, {"problem": data["selectedProblem"], "status": data["status"]}])
+	})
+
+	if (role == "admin") {
+		return (
+			<div className={styles.container}>
 					<div className={styles.topContainer}>
 						<p>Room ID: {roomId}</p>
 						<p>User ID: {user.uid}</p>
@@ -105,33 +215,36 @@ function Room({ user, role }) {
 						<div className={styles.membersContainer}>
 							<h1>Submissions</h1>
 							<div className={styles.sidebarMembers}>
-								<div className={styles.member}>
-									<p>problem | team</p>
-									<button>check</button>
-								</div>
-								<div className={styles.member}>
-									<p>problem | team</p>
-									<button>check</button>
-								</div>
+								{submissions && submissions.length > 0 ? (
+									<div className={styles.member}>
+										{submissions.map((submission, index) => (
+											<div key={index}>
+												<p>User ID: {submission.userId}</p>
+												<p>Problem: {submission.selectedProblem}</p>
+												<button onClick={() => check(submissions[index], index)}>Check</button>
+											</div>
+										))}
+									</div>
+								) : null}
 							</div>
 						</div>
 
 						<div className={styles.editorContainer}>
-							Code
+							<div ref={viewerRef} className={styles.codeEditor} id="code-editor"/>
+							{/*<button className={styles.runBtn} onClick={runCode}>Run</button>*/}
 						</div>
 
 						<div className={styles.statusContainer}>
-							{Object.keys(testCases).map((problem) => {
-								const testCase = testCases[problem];
+							{Object.keys(problems).map((problem) => {
+								const testCase = problems[problem];
 								return(
 									<div key={problem}>
 										<h2>{problem}</h2>
 										{Object.keys(testCase).map((index) => {
 										  const currentTestCase = testCase[index];
 
-										  // Check if the current test case exists
 										  if (!currentTestCase) {
-										    return null; // Skip this iteration if the test case is invalid
+										    return null;
 										  }
 
 										  return (
@@ -147,17 +260,19 @@ function Room({ user, role }) {
 							})}
 						</div>
 					</div>
-				</div>
-			:	
-				<div className={styles.container}>
+					</div>
+		)
+	} else {
+		return (
+			<div className={styles.container}>
 					<div className={styles.topContainer}>
-						<p>username</p>
+						<p>{user.uid}</p>
 						<p>Timer</p>
 						<p>score</p>
 					</div>
 					<div className={styles.mainContainer}>
 						<div className={styles.membersContainer}>
-							<h1>ROOM: {roomId}</h1>
+							<p>{roomId}</p>
 							<div className={styles.sidebarMembers}>
 								<div className={styles.member}>
 									<p>username1 | points</p>
@@ -168,7 +283,7 @@ function Room({ user, role }) {
 						<div className={styles.editorContainer}>
 							<p>main code editor</p>
 							<div ref={editorRef} className={styles.codeEditor} id="code-editor"/>
-							<div className="input-output">
+							<div className={styles.inputOutput}>
 								<div>
 									<p>Input:</p>
 									<textarea ref={inputRef} className={styles.inputEditor} />
@@ -181,21 +296,29 @@ function Room({ user, role }) {
 							<button className={styles.runBtn} onClick={runCode}>Run</button>
 						</div>
 						<div className={styles.statusContainer}>
-							<select>
-								<option>Trial</option>
+							<select value={selectedProblem} onChange={handleChange}>
+								{problems && Object.keys(problems).map((key, idx) => (
+									<option key={idx} value={key}>
+										{key}
+									</option>
+								))}
 							</select>
-							<button>Submit</button>
+							<button onClick={submit}>Submit</button>
 							<p>Submissions</p>
 							<div className={styles.submissionArea}>
-								<p>problem | status</p>
-								<p>points</p>
+								{submitted ? 
+									submitted.map((sub, idx) => {
+										return (
+											<p key={idx}>{sub.problem} | {sub.status}</p>
+										)
+									})
+								: null}
 							</div>
 						</div>
 					</div>
 				</div>
-			}
-		</div>
-	)
+		)
+	}
 }
 
 export default Room;

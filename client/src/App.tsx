@@ -8,6 +8,7 @@ import NoPage from "./pages/NoPage"
 
 import { getAuth, onAuthStateChanged, signOut } from "firebase/auth";
 import { getDatabase, ref, get } from "firebase/database";
+import { SocketProvider } from './socket';
 
 function App() {
 
@@ -19,7 +20,7 @@ function App() {
   useEffect(() => {
     const notSignedIn = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        console.log(user)
+        // console.log(user)
         setUser(user)
 
         const userRef = ref(db, `users/${user.uid}/role`);
@@ -68,19 +69,23 @@ function App() {
     <Routes>
       {user ? 
         <Route path="/" element={
-          <ProtectedRoute>
-            <Lobby user={user} role={role} />
-            <button onClick={logout}>Logout</button>
-          </ProtectedRoute>
+          <SocketProvider>
+            <ProtectedRoute>
+              <Lobby user={user} role={role} />
+              <button onClick={logout}>Logout</button>
+            </ProtectedRoute>
+          </SocketProvider>
         }/>
       :
         <Route path="/" element={<HomePage />} />
       }
       <Route path="/rooms/:roomId" element={
-        <ProtectedRoute>
-          <Room user={user} role={role} />
-          <button onClick={logout}>Logout</button>
-        </ProtectedRoute>
+        <SocketProvider>
+          <ProtectedRoute>
+            <Room user={user} role={role} />
+            <button onClick={logout}>Logout</button>
+          </ProtectedRoute>
+        </SocketProvider>
       }/>
       <Route path="*" element={<NoPage />} />
     </Routes>
